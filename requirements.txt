@@ -1,0 +1,3 @@
+rich
+curl_cffi
+packaging

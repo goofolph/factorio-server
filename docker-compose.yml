@@ -1,0 +1,19 @@
+services:
+
+  app:
+    image: goofolph/factorio:${FACTORIO_VERSION}
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 34197:34197/udp
+      # - 27015:27015/tcp
+    volumes:
+      - ${FACTORIO_DIR}:/factorio
+      - ${FACTORIO_DIR}/config/server-adminlist.json:/opt/factorio/server-adminlist.json
+    environment:
+      - FACTORIO_DIR=${FACTORIO_DIR}
+      - SERVER_SETTINGS=${SERVER_SETTINGS}
+      - MAP_SETTINGS=${MAP_SETTINGS}
+      - SAVE_NAME=${SAVE_NAME}
+    restart: always
