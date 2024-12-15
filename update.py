@@ -1,6 +1,4 @@
 import sys
-import os
-import json
 import re
 import time
 import hashlib
@@ -68,7 +66,7 @@ class FactorioVersion:
         )
 
     def __str__(self):
-        return f"FactorioVersion(version={self.version}, filename={self.filename})"
+        return f"FactorioVersion(version={self.version}" f", filename={self.filename})"
 
 
 def all_releases():
@@ -99,15 +97,15 @@ def main():
 
     # Get current version from .env file
     with open(".env", "r", encoding="utf8") as f:
-        for l in f.readlines():
-            match = re.match("^FACTORIO_VERSION=([\d\.]+)$", l)
+        for line in f.readlines():
+            match = re.match(r"^FACTORIO_VERSION=([\d\.]+)$", line)
             if match:
                 current_verison = match.group(1)
     print(f"Current version: {current_verison}")
 
     # Get latest stable version number from factorio api
     time.sleep(5)
-    resp = session.get(release_url)
+    resp = session.get(latest_release_url)
     resp.raise_for_status()
     versions = resp.json()
     stable = versions["stable"]["headless"]
@@ -154,7 +152,7 @@ def main():
         lines = f.readlines()
     for i in range(0, len(lines)):
         line = lines[i]
-        match = re.match("^FACTORIO_VERSION=([\d\.]+)$", line)
+        match = re.match(r"^FACTORIO_VERSION=([\d\.]+)$", line)
         if match:
             lines[i] = f"FACTORIO_VERSION={stable}"
     with open(env, "w", encoding="utf8") as f:
@@ -162,8 +160,22 @@ def main():
 
     print("Building new container version")
     subprocess.call(["docker", "compose", "build", "--no-cache"])
-    if subprocess.check_output(["docker", "images", "-q", f"{image}:{stable}"]):
-        subprocess.call(["docker", "tag", f"{image}:{stable}", f"{image}:latest"])
+    if subprocess.check_output(
+        [
+            "docker",
+            "images",
+            "-q",
+            f"{image}:{stable}",
+        ]
+    ):
+        subprocess.call(
+            [
+                "docker",
+                "tag",
+                f"{image}:{stable}",
+                f"{image}:latest",
+            ]
+        )
         print("Recreating containers to use new build version")
         subprocess.call(["docker", "compose", "up", "-d"])
     else:
@@ -172,7 +184,7 @@ def main():
             lines = f.readlines()
         for i in range(0, len(lines)):
             line = lines[i]
-            match = re.match("^FACTORIO_VERSION=([\d\.]+)$", line)
+            match = re.match(r"^FACTORIO_VERSION=([\d\.]+)$", line)
             if match:
                 lines[i] = f"FACTORIO_VERSION={current_verison}"
         with open(env, "w", encoding="utf8") as f:
