@@ -1,3 +1,6 @@
 rich
 curl_cffi
 packaging
+requests
+httpx
+beautifulsoup4

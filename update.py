@@ -1,11 +1,14 @@
-import sys
-import re
-import time
 import hashlib
+import os
+import re
 import subprocess
-from rich import print
+import sys
+import time
+from enum import Enum
+
 from curl_cffi import requests
 from packaging.version import Version
+from rich import print
 
 
 def validate_sha256(filepath: str, expected_sha256: str):
@@ -48,27 +51,6 @@ def get(url: str):
     return resp
 
 
-class FactorioVersion:
-    def __init__(self, version: str, filename: str, sha256: str):
-        assert isinstance(version, str)
-        version = version.strip()
-        assert len(version) > 0
-        assert isinstance(filename, str)
-        filename = filename.strip()
-        assert isinstance(sha256, str)
-        sha256 = sha256.strip()
-
-        self.version = Version(version)
-        self.filename = filename
-        self.sha256 = sha256
-        self.download_url = (
-            f"https://www.factorio.com/get-download/{version}/headless/linux64"
-        )
-
-    def __str__(self):
-        return f"FactorioVersion(version={self.version}" f", filename={self.filename})"
-
-
 def all_releases():
     available = get(available_releases_url).json()
     hashes = [line.split() for line in get(sha256_url).text.split("\n")]
@@ -83,13 +65,13 @@ def all_releases():
             all_versions.add(pair["stable"])
     all_versions = [FactorioVersion(v, "", "") for v in all_versions]
 
-    hashes_versions = []
+    headless_versions = []
     for h in hashes:
         match = re.match(r"^.*headless.*(\d+\.\d+\.\d+)\.tar\.xz$", h[1])
         if match:
-            hashes_versions.append(FactorioVersion(match[1], h[1], h[0]))
+            headless_versions.append(FactorioVersion(match[1], h[1], h[0]))
 
-    return all_versions, hashes_versions
+    return all_versions, headless_versions
 
 
 def main():
@@ -132,7 +114,9 @@ def main():
     print("stable sha256", stable_sha256)
 
     # Download server tar
-    download_url = f"https://www.factorio.com/get-download/{stable}/headless/linux64"
+    download_url = (
+        f"https://www.factorio.com/get-download/{stable}/headless/linux64"
+    )
     print("Downloading", download_url)
     time.sleep(5)
     resp = session.get(download_url)
