@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import json
 import os
@@ -59,10 +60,10 @@ class FactoriMods:
         sha1.update(url_slug.encode("utf8"))
         url_slug_hash = sha1.hexdigest()
         cache_name = f"/tmp/{url_slug_hash}.{ext}"
-        print("GET:", url)
-        print("Cache name:", cache_name)
+        # print("GET:", url)
+        # print("Cache name:", cache_name)
         if os.path.exists(cache_name):
-            print("Reading from cache")
+            # print("Reading from cache")
             if retContent:
                 with open(cache_name, "rb") as f:
                     ret = f.read()
@@ -82,7 +83,7 @@ class FactoriMods:
                 data=data,
             )
             resp.raise_for_status()
-            print("Writing to cache", cache_name)
+            # print("Writing to cache", cache_name)
             if retContent:
                 with open(cache_name, "wb") as f:
                     f.write(resp.content)
@@ -168,7 +169,12 @@ class FactoriMods:
         with open(filepath, "rb") as f:
             sha1.update(f.read())
         h = sha1.hexdigest()
-        assert h == release["sha1"]
+        if h == release["sha1"]:
+            return filepath
+        else:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        return filepath
 
     def download_mod_latest(
         self, modname: str, min_factorio_version: str, directory: str = "."
@@ -181,19 +187,23 @@ class FactoriMods:
         assert len(directory.strip()) > 0
 
         latest = self.get_mod_latest([modname], min_factorio_version)
-        print("Latest:", latest)
-        self.download_mod(
+        # print("Latest:", latest)
+        return self.download_mod(
             modname,
             latest[modname]["version"],
             directory=directory,
         )
 
 
-if __name__ == "__main__":
+def main(modsdir: str, min_factorio_version: str):
+    assert isinstance(modsdir, str)
+    assert len(modsdir.strip()) > 0
+    assert isinstance(min_factorio_version, str)
+    assert len(min_factorio_version) > 0
 
     config_file = "./.env"
-    min_factorio_version = "2.0"
-    modsdir = "./mods"
+    # min_factorio_version = "2.0"
+    # modsdir = "./mods"
 
     config = {}
     with open(config_file, "r", encoding="utf8") as f:
@@ -201,20 +211,40 @@ if __name__ == "__main__":
             line = line.strip()
             key, value = line.partition("=")[::2]
             config[key.strip()] = value.strip()
-    print(config)
+    # print(config)
 
     fmods = FactoriMods(
         username=config["FACTORIO_USERNAME"], token=config["FACTORIO_TOKEN"]
     )
-    mods = []
     if not os.path.exists(modsdir):
         os.mkdir(modsdir)
     for mod in os.listdir(modsdir):
         match = re.match(r"^(.+)_[\d\.]+\.zip$", mod)
         if match:
-            mods.append(match.group(1))
-    print(mods)
+            modname = match.group(1)
+            modpath = os.path.join(modsdir, mod)
+            print("Updating mod", mod, modname)
+            try:
+                newpath = fmods.download_mod_latest(
+                    modname, min_factorio_version, modsdir
+                )
+                # TODO Add cleanup of old versions
+                print("Modpath:", modpath)
+                print("Newpath:", newpath)
+                if modpath != newpath and os.path.exists(newpath):
+                    os.remove(modpath)
+                else:
+                    print("mod is already updated")
+            except AssertionError as e:
+                print(e)
+        else:
+            print("unmatched file", mod)
 
-    for mod in mods:
-        fmods.download_mod_latest(mod, min_factorio_version, modsdir)
-        # TODO Add cleanup of old versions
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--min-factorio-version", type=str, required=True)
+    parser.add_argument("--mods-dir", type=str, required=True)
+    args = parser.parse_args()
+
+    main(args.mods_dir, args.min_factorio_version)
